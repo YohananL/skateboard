@@ -15,8 +15,8 @@ local Skateboard = {
 
 local VehicleModel = 'bmx'                   -- The model used for the vehicle underneath
 local BoardModel = 'p_defilied_ragdoll_01_s' -- The board prop model
--- local DriverDummyModel = 'a_c_cat_01'        -- The ped model to use for driving the skateboard
-local DriverDummyModel = 'a_f_m_bevhills_01' -- The ped model to use for driving the skateboard
+local DriverDummyModel = 'a_c_cat_01'        -- The ped model to use for driving the skateboard
+-- local DriverDummyModel = 'a_f_m_bevhills_01' -- The ped model to use for driving the skateboard
 
 --- @enum EntityType
 local EntityType = {
@@ -82,19 +82,35 @@ function waitForAnimation(dictionary)
     return true
 end
 
+--- Unload animations
+--- @param animations table
+function unLoadAnimations(animations)
+    for _, value in pairs(animations) do
+        RemoveAnimDict(value.dictionary)
+    end
+end
+
+--- Load animations
+--- @param animations table
+function loadAnimations(animations)
+    for _, value in pairs(animations) do
+        if not (HasAnimDictLoaded(value.dictionary)) then
+            waitForAnimation(value.dictionary)
+        end
+    end
+end
+
 --- Load the animation then play
 --- @param entity number
 --- @param animation table
 --- @return number animDuration
 function executeAnimation(entity, animation)
-    local animDuration = GetAnimDuration(animation.dictionary, animation.name)
-
-    waitForAnimation(animation.dictionary)
+    -- waitForAnimation(animation.dictionary)
     TaskPlayAnim(entity, animation.dictionary, animation.name,
-        8.0, 8.0, animDuration, animation.flag,
+        8.0, 8.0, -1, animation.flag,
         0.0, false, false, false)
 
-    return animDuration
+    return GetAnimDuration(animation.dictionary, animation.name)
 end
 
 --- ============================
@@ -196,6 +212,19 @@ function initializeBoard(playerForwardCoords)
         false, true, true, true, 2, true)
 end
 
+function initializeDummyDriver(playerForwardCoords, playerHeading)
+    -- Create the dummy driver
+    -- Should the dummy driver be local only?
+    Skateboard.driverDummy = createEntity(EntityType.Ped, DriverDummyModel, playerForwardCoords, playerHeading, true)
+
+    SetEntityVisible(Skateboard.driverDummy, false, false)
+    SetEntityCollision(Skateboard.driverDummy, false, false)
+    SetEnableHandcuffs(Skateboard.driverDummy, true)
+    SetEntityInvincible(Skateboard.driverDummy, true)
+    FreezeEntityPosition(Skateboard.driverDummy, true)
+    TaskWarpPedIntoVehicle(Skateboard.driverDummy, Skateboard.vehicle, -1)
+end
+
 function putDownBoard()
     -- Attach the vehicle to the player's right hand
     local PH_R_Hand = 28422
@@ -213,17 +242,22 @@ function putDownBoard()
     PlaceObjectOnGroundProperly(Skateboard.vehicle)
 end
 
-function initializeDummyDriver(playerForwardCoords, playerHeading)
-    -- Create the dummy driver
-    -- Should the dummy driver be local only?
-    Skateboard.driverDummy = createEntity(EntityType.Ped, DriverDummyModel, playerForwardCoords, playerHeading, true)
+function pickUpBoard()
+    -- Do the pick up animation
+    local animationTime = executeAnimation(Skateboard.playerPed, Animations.skateboard.pickup2)
 
-    SetEntityVisible(Skateboard.driverDummy, false, false)
-    SetEntityCollision(Skateboard.driverDummy, false, false)
-    SetEnableHandcuffs(Skateboard.driverDummy, true)
-    SetEntityInvincible(Skateboard.driverDummy, true)
-    FreezeEntityPosition(Skateboard.driverDummy, true)
-    TaskWarpPedIntoVehicle(Skateboard.driverDummy, Skateboard.vehicle, -1)
+    -- Wait before attaching the skateboard to the player
+    Wait(animationTime * 500)
+
+    -- Attach the skateboard to the player's right hand
+    local PH_R_Hand = 28422
+    AttachEntityToEntity(Skateboard.vehicle, Skateboard.playerPed, GetPedBoneIndex(Skateboard.playerPed, PH_R_Hand),
+        -0.1, -0.1, -0.4,
+        90.0, 0.0, 270.0,
+        true, true, false, false, 2, true)
+
+    -- Wait again after the skateboard's picked up
+    Wait(animationTime * 500)
 end
 
 --- ============================
@@ -233,7 +267,10 @@ end
 --- Create the skateboard if it doesn't already exist
 function Skateboard:start()
     if DoesEntityExist(Skateboard.vehicle) then
-        return
+        -- Detach player and delete all entities
+        Skateboard:detachPlayer()
+        Skateboard:deleteEntities()
+        -- return
     end
 
     Skateboard:spawn()
@@ -277,6 +314,9 @@ end
 
 --- Spawn the skateboard
 function Skateboard:spawn()
+    -- Load animations
+    loadAnimations(Animations.skateboard)
+
     -- Get the player forward coords
     local playerForwardCoords = getForwardCoordinates(Skateboard.playerPed, 1.0)
 
@@ -523,20 +563,8 @@ end
 
 --- Remove the skateboard
 function Skateboard:clear()
-    -- Do the pick up animation
-    local animationTime = executeAnimation(Skateboard.playerPed, Animations.skateboard.pickup2)
-    -- Wait before attaching the skateboard to the player
-    Wait(animationTime * 500)
-
-    -- Attach the skateboard to the player's right hand
-    local PH_R_Hand = 28422
-    AttachEntityToEntity(Skateboard.vehicle, Skateboard.playerPed, GetPedBoneIndex(Skateboard.playerPed, PH_R_Hand),
-        -0.1, -0.1, -0.4,
-        90.0, 0.0, 270.0,
-        true, true, false, false, 2, true)
-
-    -- Wait again after the skateboard's picked up
-    Wait(animationTime * 500)
+    -- Do the pick up skateboard animation
+    pickUpBoard()
 
     -- Delete the entities
     Skateboard:deleteEntities()
