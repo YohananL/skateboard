@@ -13,8 +13,8 @@ local Skateboard = {
 
 local VehicleModel = 'bmx'                   -- The model used for the vehicle underneath
 local BoardModel = 'p_defilied_ragdoll_01_s' -- The board prop model
-local DriverDummyModel = 'a_c_cat_01'        -- The ped model to use for driving the skateboard
--- local DriverDummyModel = 'a_f_m_bevhills_01' -- The ped model to use for driving the skateboard
+-- local DriverDummyModel = 'a_c_cat_01'        -- The ped model to use for driving the skateboard
+local DriverDummyModel = 'a_f_m_bevhills_01' -- The ped model to use for driving the skateboard
 
 --- @enum EntityType
 local EntityType = {
@@ -25,6 +25,7 @@ local EntityType = {
 
 --- @enum Keys
 local Keys = {
+    Spacebar = 22,
     W = 32,
     S = 33,
     A = 34,
@@ -34,14 +35,19 @@ local Keys = {
 }
 
 --- Make enum for the Task Movements
-
+local VehicleAction = {
+    Brake = 1,
+    BrakePlusReverse = 3,
+    TurnLeftPlusBrake = 4,
+    TurnRightPlusBrake = 5,
+}
 
 
 --- ============================
 ---           Animator
 --- ============================
 
---- @enum
+--- enum
 local AnimationFlags =
 {
     ANIM_FLAG_NORMAL = 0,
@@ -175,7 +181,7 @@ function initializeVehicle(playerForwardCoords, playerHeading)
     SetEntityCollision(Skateboard.vehicle, false, true)
 end
 
-function initializeBoard(playerForwardCoords, playerHeading)
+function initializeBoard(playerForwardCoords)
     -- Create the skateboard prop
     Skateboard.board = createEntity(EntityType.Object, BoardModel, playerForwardCoords, 0, true)
 
@@ -272,7 +278,7 @@ function Skateboard:spawn()
     initializeVehicle(playerForwardCoords, playerHeading)
 
     -- Make the board
-    initializeBoard(playerForwardCoords, playerHeading)
+    initializeBoard(playerForwardCoords)
 
     -- Do the animation to put down the skateboard
     putDownBoard()
@@ -289,6 +295,7 @@ end
 --- @param currentDistance number
 function Skateboard:handleKeys(currentDistance)
     if currentDistance <= 1.5 then
+        -- When "E" is pressed
         if IsControlJustPressed(0, Keys.E) then
             -- Check if player is riding the skateboard
             if Skateboard.isMounted then
@@ -298,37 +305,96 @@ function Skateboard:handleKeys(currentDistance)
             end
         end
 
+        -- When "G" is pressed
         if IsControlJustReleased(0, Keys.G) then
+            -- Mount or dismount the skateboard
             Skateboard:mount()
         end
 
-
+        -- Movement controls
         if Skateboard.isMounted then
-            local overSpeed = (GetEntitySpeed(Skateboard.vehicle) * 3.6) > Config.MaxSpeedKmh
+            if IsEntityInAir(Skateboard.vehicle) then
+                -- A = Turn left 90 degrees
+                if IsControlPressed(0, Keys.A) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 7, 1.0)
+                end
 
-            -- If no keys are pressed
-            if IsControlJustReleased(0, Keys.W) or IsControlJustReleased(0, Keys.S) then
-                TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 500)
-            end
+                -- D = Turn right 90 degrees
+                if IsControlPressed(0, Keys.D) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 8, 1.0)
+                end
+            else -- On ground
+                -- Spacebar = Jump
+                if IsControlPressed(0, Keys.Spacebar) then
+                    -- If still on ground
+                    TaskPlayAnim(Skateboard.playerPed, 'move_crouch_proto', 'idle_intro',
+                        5.0, 8.0, -1, 0, 0, false, false, false)
+                    local duration = 0
+                    local boost = 0
+                    while IsControlPressed(0, Keys.Spacebar) do
+                        Wait(10)
+                        duration = duration + 10.0
+                    end
+                    boost = Config.MaxJumpHeight * duration / 250.0
+                    if boost > Config.MaxJumpHeight then boost = Config.MaxJumpHeight end
+                    StopAnimTask(Skateboard.playerPed, 'move_crouch_proto', 'idle_intro', 1.0)
+                    local vel = GetEntityVelocity(Skateboard.vehicle)
+                    SetEntityVelocity(Skateboard.vehicle, vel.x, vel.y, vel.z + boost)
+                    TaskPlayAnim(Skateboard.playerPed, 'move_strafe@stealth', 'idle',
+                        8.0, 2.0, -1, 1, 1.0, false, false, false)
+                end
 
-            -- W = Accelerate
-            if IsControlPressed(0, Keys.W) and not IsControlPressed(0, Keys.S) and not overSpeed then
-                TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 500)
-            end
+                local overSpeed = (GetEntitySpeed(Skateboard.vehicle) * 3.6) > Config.MaxSpeedKmh
 
-            -- S = Brake and reverse
-            if IsControlPressed(0, Keys.S) and not IsControlPressed(0, Keys.W) then
-                TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 3, 500)
-            end
+                -- If no keys are pressed
+                if IsControlJustReleased(0, Keys.W) or IsControlJustReleased(0, Keys.S) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
+                end
 
-            -- W + A = Turn left
-            if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.A) and not overSpeed then
-                TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 7, 500)
-            end
+                -- W = Accelerate
+                if IsControlPressed(0, Keys.W) and not IsControlPressed(0, Keys.S) and not overSpeed then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
+                end
 
-            -- W + D = Turn right
-            if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.D) then
-                TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 8, 500)
+                -- S = Brake and reverse
+                if IsControlPressed(0, Keys.S) and not IsControlPressed(0, Keys.W) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 3, 1.0)
+                end
+
+                -- W + S = Brake
+                if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.S) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
+                end
+
+                -- W + A = Accelerate and turn left
+                if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.A) and not overSpeed then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 7, 1.0)
+                end
+
+                -- S + A = Reverse and turn left
+                if IsControlPressed(0, Keys.S) and IsControlPressed(0, Keys.A) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 13, 1.0)
+                end
+
+                -- W + D = Accelerate and turn right
+                if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.D) and not overSpeed then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 8, 1.0)
+                end
+
+                -- S + D = Reverse and turn right
+                if IsControlPressed(0, Keys.S) and IsControlPressed(0, Keys.D) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 14, 1.0)
+                end
+
+                -- A = Brake while turning left
+                if IsControlPressed(0, Keys.A) and IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.S) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 25, 1.0)
+                end
+
+                -- D = Brake while turning right
+                if IsControlPressed(0, Keys.D) and IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.S) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 26, 1.0)
+                end
             end
         else
             -- Stop the vehicle from moving when not mounted
@@ -337,9 +403,9 @@ function Skateboard:handleKeys(currentDistance)
     end
 end
 
---- Mount/unmount the skateboard
+--- Mount/dismount the skateboard
 function Skateboard:mount()
-    -- If already mounted then, unmount
+    -- If already mounted then dismount
     if Skateboard.isMounted then
         DetachEntity(Skateboard.playerPed, false, false)
         SetPedRagdollOnCollision(Skateboard.playerPed, false)
