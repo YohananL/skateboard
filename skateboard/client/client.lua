@@ -4,13 +4,17 @@
 
 --- @class Skateboard
 local Skateboard = {
-    vehicle = 0,       -- The vehicle entity used underneath so the player can ride the skateboard
-    board = 0,         -- The skateboard object that the player stands on
-    speed = 0.0,       -- The speed of the vehicle
-    playerPed = 0,     -- The player ped
-    driverDummy = 0,   -- The npc ped to use for driving the vehicle (so the player won't do the animations)
-    isMounted = false, -- Determines if the player is attached to the skateboard
-    waitTime = 1,      -- The wait time for threads
+    vehicle = 0,        -- The vehicle entity used underneath so the player can ride the skateboard
+    board = 0,          -- The skateboard object that the player stands on
+    speed = 0.0,        -- The speed of the vehicle
+    playerPed = 0,      -- The player ped
+    driverDummy = 0,    -- The npc ped to use for driving the vehicle (so the player won't do the animations)
+    isMounted = false,  -- Determines if the player is attached to the skateboard
+    waitTime = 1,       -- The wait time for threads
+    zRotation = 0.0,    -- z rotation
+    zRotationMin = 1.5, -- Min z rotation
+    zRotationMax = 3.0, -- Max z rotation
+    zTick = 0.02        -- Rate that z rotation changes
 }
 
 local VehicleModel = 'bmx'                   -- The model used for the vehicle underneath
@@ -27,6 +31,7 @@ local EntityType = {
 
 --- @enum Keys
 local Keys = {
+    LeftShift = 21,
     Spacebar = 22,
     W = 32,
     S = 33,
@@ -229,9 +234,13 @@ function putDownBoard()
     -- Attach the vehicle to the player's right hand
     local PH_R_Hand = 28422
     AttachEntityToEntity(Skateboard.vehicle, Skateboard.playerPed, GetPedBoneIndex(Skateboard.playerPed, PH_R_Hand),
-        -0.1, 0.0, 0.2,
-        70.0, 0.0, 270.0,
+        -0.1, -0.1, -0.4,
+        90.0, 0.0, 270.0,
         true, true, false, false, 2, true)
+    -- AttachEntityToEntity(Skateboard.vehicle, Skateboard.playerPed, GetPedBoneIndex(Skateboard.playerPed, PH_R_Hand),
+    --     -0.1, 0.0, 0.2,
+    --     70.0, 0.0, 270.0,
+    --     true, true, false, false, 2, true)
 
     -- Play the animation to put down the skateboard
     local animationTime = executeAnimation(Skateboard.playerPed, Animations.skateboard.pickup1)
@@ -401,21 +410,32 @@ function Skateboard:handleKeys(currentDistance)
                         Animations.skateboard.lean.dictionary, Animations.skateboard.lean.name,
                         8.0, 8.0, -1, AnimationFlags.ANIM_FLAG_REPEAT,
                         0.0, false, false, false)
+
+                    -- Initialize z rotation
+                    Skateboard.zRotation = Skateboard.zRotationMin
                 end
 
                 local overSpeed = (GetEntitySpeed(Skateboard.vehicle) * 3.6) > Config.MaxSpeedKmh
 
                 -- If no keys are pressed
-                if IsControlJustReleased(0, Keys.W) or IsControlJustReleased(0, Keys.S)
-                    or IsControlJustReleased(0, Keys.A) or IsControlJustReleased(0, Keys.D) then
+                if IsControlReleased(0, Keys.W) or IsControlReleased(0, Keys.S)
+                    or IsControlReleased(0, Keys.A) or IsControlReleased(0, Keys.D) then
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
                 end
 
-                -- W = Accelerate
-                if IsControlPressed(0, Keys.W) and not IsControlPressed(0, Keys.S)
-                    and not IsControlPressed(0, Keys.A) and not IsControlPressed(0, Keys.D)
-                    and not overSpeed then
+                -- If W is just released
+                if IsControlJustReleased(0, Keys.W) then
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
+                end
+
+                -- W = Accelerate
+                if IsControlPressed(0, Keys.W) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
+                end
+
+                -- W + LeftShift = Strong acceleration
+                if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.LeftShift) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 23, 1.0)
                 end
 
                 -- S = Brake and reverse
@@ -468,27 +488,21 @@ function Skateboard:handleKeys(currentDistance)
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 26, 1.0)
                 end
             else
-                -- -- A = Turn left
-                -- if IsControlPressed(0, Keys.A) then
-                --     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 10, 1.0)
-                -- end
-
-                -- -- D = Turn right
-                -- if IsControlPressed(0, Keys.D) then
-                --     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 11, 1.0)
-                -- end
-
-                local rotVel = GetEntityRotationVelocity(Skateboard.vehicle, 2)
-                print(tostring(rotVel.x) .. ', ' .. tostring(rotVel.y) .. ', ' .. tostring(rotVel.z))
-
-                -- A = Turn left
-                if IsControlPressed(0, Keys.A) then
-                    SetEntityAngularVelocity(Skateboard.vehicle, rotVel.x - 0.1, rotVel.y + 0.1, rotVel.z + 0.1)
+                -- Increase the z rotation value until it reaches max
+                if Skateboard.zRotation < Skateboard.zRotationMax then
+                    Skateboard.zRotation = Skateboard.zRotation + Skateboard.zTick
                 end
 
-                -- D = Turn right
+                -- A = Rotate left
+                if IsControlPressed(0, Keys.A) then
+                    -- SetEntityAngularVelocity(Skateboard.vehicle, rotVel.x - 0.1, rotVel.y - 0.1, rotVel.z + 0.1)
+                    SetEntityAngularVelocity(Skateboard.vehicle, 0.0, 0.0, Skateboard.zRotation)
+                end
+
+                -- D = Rotate right
                 if IsControlPressed(0, Keys.D) then
-                    SetEntityAngularVelocity(Skateboard.vehicle, rotVel.x + 0.1, rotVel.y - 0.1, rotVel.z - 0.1)
+                    -- SetEntityAngularVelocity(Skateboard.vehicle, rotVel.x + 0.1, rotVel.y - 0.1, rotVel.z - 0.1)
+                    SetEntityAngularVelocity(Skateboard.vehicle, 0.0, 0.0, -Skateboard.zRotation)
                 end
             end
         else
