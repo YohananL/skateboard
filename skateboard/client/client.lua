@@ -458,7 +458,34 @@ function Skateboard:handleKeys(currentDistance)
                 -- If no keys are pressed
                 if IsControlReleased(0, Keys.W) or IsControlReleased(0, Keys.S)
                     or IsControlReleased(0, Keys.A) or IsControlReleased(0, Keys.D) then
-                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
+                    -- If vehicle is downhill, keep going
+                    local pitch = GetEntityPitch(Skateboard.vehicle)
+                    if pitch < -0.5 then
+                        if IsControlPressed(0, Keys.A) then
+                            -- A = Turn left
+                            TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 7, 1.0)
+                        elseif IsControlPressed(0, Keys.D) then
+                            -- D = Turn right
+                            TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 8, 1.0)
+                        else
+                            TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
+                        end
+                    elseif pitch > 0.5 then
+                        if IsControlPressed(0, Keys.A) then
+                            -- A = Turn left
+                            TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 13, 1.0)
+                        elseif IsControlPressed(0, Keys.D) then
+                            -- D = Turn right
+                            TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 14, 1.0)
+                        else
+                            TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 3, 1.0)
+                        end
+                    else
+                        TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
+                    end
+
+                    -- -- Stop moving
+                    -- TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
                 end
 
                 -- If W is just released
@@ -612,6 +639,13 @@ function Skateboard:deleteEntities()
     deleteEntity(Skateboard.driverDummy)
 end
 
+--- Make all skateboard-related values nil
+function Skateboard:resetValues()
+    Skateboard.vehicle = nil
+    Skateboard.board = nil
+    Skateboard.driverDummy = nil
+end
+
 --- Remove the skateboard
 function Skateboard:clear()
     -- Do the pick up skateboard animation
@@ -619,6 +653,9 @@ function Skateboard:clear()
 
     -- Delete the entities
     Skateboard:deleteEntities()
+
+    -- Reset skateboard values
+    Skateboard:resetValues()
 end
 
 --- ============================
@@ -630,7 +667,9 @@ RegisterNetEvent('skateboard:start', function()
 end)
 
 AddEventHandler('baseevents:onPlayerDied', function()
-    TriggerEvent('QBCore:Notify', 'Player died, removing skateboard', 'error', 2500)
-    Skateboard:detachPlayer()
-    Skateboard:deleteEntities()
+    if Skateboard.vehicle then
+        TriggerEvent('QBCore:Notify', 'Player died, removing skateboard', 'error', 2500)
+        Skateboard:detachPlayer()
+        Skateboard:deleteEntities()
+    end
 end)
