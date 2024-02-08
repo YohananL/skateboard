@@ -10,10 +10,11 @@ local Skateboard = {
     playerPed = 0,      -- The player ped
     driverDummy = 0,    -- The npc ped to use for driving the vehicle (so the player won't do the animations)
     isMounted = false,  -- Determines if the player is attached to the skateboard
+    isMaxSpeed = false, -- Determines if the skateboard is at max speed
     waitTime = 1,       -- The wait time for threads
     zRotation = 0.0,    -- z rotation
     zRotationMin = 1.5, -- Min z rotation
-    zRotationMax = 3.0, -- Max z rotation
+    zRotationMax = 4.0, -- Max z rotation
     zTick = 0.02        -- Rate that z rotation changes
 }
 
@@ -72,7 +73,9 @@ local Animations = {
         pickup1 = { name = 'pickup_low', dictionary = 'pickup_object', flag = AnimationFlags.ANIM_FLAG_NORMAL, },
         pickup2 = { name = 'pickup_low', dictionary = 'pickup_object', flag = AnimationFlags.ANIM_FLAG_CANCELABLE, },
         lean = { name = 'idle', dictionary = 'move_strafe@stealth', flag = AnimationFlags.ANIM_FLAG_REPEAT },
-        jump = { name = 'idle_intro', dictionary = 'move_crouch_proto', flag = AnimationFlags.ANIM_FLAG_NORMAL },
+        jump = { name = 'idle_intro', dictionary = 'move_crouch_proto', flag = AnimationFlags.ANIM_FLAG_REPEAT },
+        sprint = { name = 'sprint', dictionary = 'move_crouch_proto', flag = AnimationFlags.ANIM_FLAG_NORMAL },
+        -- sprint = { name = 'idle_intro', dictionary = 'anim@move_f@grooving@', flag = AnimationFlags.ANIM_FLAG_NORMAL },
     },
 }
 
@@ -237,10 +240,6 @@ function putDownBoard()
         -0.1, -0.1, -0.4,
         90.0, 0.0, 270.0,
         true, true, false, false, 2, true)
-    -- AttachEntityToEntity(Skateboard.vehicle, Skateboard.playerPed, GetPedBoneIndex(Skateboard.playerPed, PH_R_Hand),
-    --     -0.1, 0.0, 0.2,
-    --     70.0, 0.0, 270.0,
-    --     true, true, false, false, 2, true)
 
     -- Play the animation to put down the skateboard
     local animationTime = executeAnimation(Skateboard.playerPed, Animations.skateboard.pickup1)
@@ -276,6 +275,8 @@ end
 --- Create the skateboard if it doesn't already exist
 function Skateboard:start()
     if DoesEntityExist(Skateboard.vehicle) then
+        TriggerEvent('QBCore:Notify', 'Skateboard already exists', 'error', 2500)
+
         -- Detach player and delete all entities
         Skateboard:detachPlayer()
         Skateboard:deleteEntities()
@@ -296,6 +297,8 @@ function Skateboard:start()
                     NetworkRequestControlOfEntity(Skateboard.vehicle)
                 end
             else
+                TriggerEvent('QBCore:Notify', 'Player is too far, removing skateboard', 'error', 2500)
+
                 -- Detach player and delete all entities
                 Skateboard:detachPlayer()
                 Skateboard:deleteEntities()
@@ -374,6 +377,12 @@ function Skateboard:handleKeys(currentDistance)
             -- Check if player must ragdoll
             Skateboard.speed = GetEntitySpeed(Skateboard.vehicle) * 3.6
             if Skateboard:mustRagdoll() then
+                local rotation = GetEntityRotation(Skateboard.vehicle)
+                local msg = string.format("Ragdolling: x = %.2f, y = %.2f, z = %.2f, speed = %.2f",
+                    rotation.x, rotation.y, rotation.z, Skateboard.speed)
+
+                TriggerEvent('QBCore:Notify', msg, 'error', 2500)
+
                 Skateboard:detachPlayer()
                 SetPedToRagdoll(Skateboard.playerPed, 3000, 2000, 0, true, true, false)
             end
@@ -384,7 +393,7 @@ function Skateboard:handleKeys(currentDistance)
                     -- Start the crouch animation
                     TaskPlayAnim(Skateboard.playerPed,
                         Animations.skateboard.jump.dictionary, Animations.skateboard.jump.name,
-                        5.0, 8.0, -1, AnimationFlags.ANIM_FLAG_NORMAL, 0.0, false, false,
+                        5.0, 8.0, -1, AnimationFlags.ANIM_FLAG_REPEAT, 0.0, false, false,
                         false)
 
                     -- Get the total duration the player is crouched
@@ -415,7 +424,32 @@ function Skateboard:handleKeys(currentDistance)
                     Skateboard.zRotation = Skateboard.zRotationMin
                 end
 
-                local overSpeed = (GetEntitySpeed(Skateboard.vehicle) * 3.6) > Config.MaxSpeedKmh
+                Skateboard.isMaxSpeed = (GetEntitySpeed(Skateboard.vehicle) * 3.6) > Config.MaxSpeedKmh
+
+                -- W + LeftShift = Strong acceleration
+                if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.LeftShift) then
+                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 23, 1.0)
+
+                    -- Start the sprint animation
+                    TaskPlayAnim(Skateboard.playerPed,
+                        Animations.skateboard.sprint.dictionary, Animations.skateboard.sprint.name,
+                        5.0, 8.0, -1, AnimationFlags.ANIM_FLAG_REPEAT, 0.0, false, false,
+                        false)
+
+                    -- Hold the animation until left shift is released
+                    while IsControlPressed(0, Keys.LeftShift) do
+                        Wait(Skateboard.waitTime)
+                    end
+
+                    StopAnimTask(Skateboard.playerPed, Animations.skateboard.sprint.dictionary,
+                        Animations.skateboard.sprint.name, 1.0)
+
+                    -- Go back to the lean animation
+                    TaskPlayAnim(Skateboard.playerPed,
+                        Animations.skateboard.lean.dictionary, Animations.skateboard.lean.name,
+                        8.0, 8.0, -1, AnimationFlags.ANIM_FLAG_REPEAT,
+                        0.0, false, false, false)
+                end
 
                 -- If no keys are pressed
                 if IsControlReleased(0, Keys.W) or IsControlReleased(0, Keys.S)
@@ -433,11 +467,6 @@ function Skateboard:handleKeys(currentDistance)
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
                 end
 
-                -- W + LeftShift = Strong acceleration
-                if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.LeftShift) then
-                    TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 23, 1.0)
-                end
-
                 -- S = Brake and reverse
                 if IsControlPressed(0, Keys.S) and not IsControlPressed(0, Keys.W)
                     and not IsControlPressed(0, Keys.A) and not IsControlPressed(0, Keys.D) then
@@ -453,7 +482,7 @@ function Skateboard:handleKeys(currentDistance)
                 -- W + A = Accelerate and turn left
                 if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.A)
                     and not IsControlPressed(0, Keys.S) and not IsControlPressed(0, Keys.D)
-                    and not overSpeed then
+                    and not Skateboard.isMaxSpeed then
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 7, 1.0)
                 end
 
@@ -466,7 +495,7 @@ function Skateboard:handleKeys(currentDistance)
                 -- W + D = Accelerate and turn right
                 if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.D)
                     and not IsControlPressed(0, Keys.S) and not IsControlPressed(0, Keys.A)
-                    and not overSpeed then
+                    and not Skateboard.isMaxSpeed then
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 8, 1.0)
                 end
 
@@ -555,7 +584,7 @@ function Skateboard:mustRagdoll()
     local rotation = GetEntityRotation(Skateboard.vehicle)
     local x = rotation.x
     local y = rotation.y
-    if (x > 60.0 or y > 60.0 or x < -60.0 or y < -60.0) and Skateboard.speed < 10.0 then
+    if (x > 60.0 or y > 60.0 or x < -60.0 or y < -60.0) and Skateboard.speed < 3.0 then
         return true
     end
     -- if (HasEntityCollidedWithAnything(Skateboard.playerPed) and Skateboard.speed > 30.0) then return true end
@@ -593,6 +622,7 @@ RegisterNetEvent('skateboard:start', function()
 end)
 
 AddEventHandler('baseevents:onPlayerDied', function()
+    TriggerEvent('QBCore:Notify', 'Player died, removing skateboard', 'error', 2500)
     Skateboard:detachPlayer()
     Skateboard:deleteEntities()
 end)
