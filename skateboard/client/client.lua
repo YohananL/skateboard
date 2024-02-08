@@ -4,18 +4,18 @@
 
 --- @class Skateboard
 local Skateboard = {
-    vehicle = 0,        -- The vehicle entity used underneath so the player can ride the skateboard
-    board = 0,          -- The skateboard object that the player stands on
-    speed = 0.0,        -- The speed of the vehicle
-    playerPed = 0,      -- The player ped
-    driverDummy = 0,    -- The npc ped to use for driving the vehicle (so the player won't do the animations)
-    isMounted = false,  -- Determines if the player is attached to the skateboard
-    isMaxSpeed = false, -- Determines if the skateboard is at max speed
-    waitTime = 1,       -- The wait time for threads
-    zRotation = 0.0,    -- z rotation
-    zRotationMin = 1.5, -- Min z rotation
-    zRotationMax = 4.0, -- Max z rotation
-    zTick = 0.02        -- Rate that z rotation changes
+    vehicle = 0,          -- The vehicle entity used underneath so the player can ride the skateboard
+    board = 0,            -- The skateboard object that the player stands on
+    speed = 0.0,          -- The speed of the vehicle
+    playerPed = 0,        -- The player ped
+    driverDummy = 0,      -- The npc ped to use for driving the vehicle (so the player won't do the animations)
+    isMounted = false,    -- Determines if the player is attached to the skateboard
+    isMaxSpeed = false,   -- Determines if the skateboard is at max speed
+    waitTime = 1,         -- The wait time for threads
+    airRotation = 0.0,    -- z rotation
+    airRotationMin = 1.5, -- Min z rotation
+    airRotationMax = 4.0, -- Max z rotation
+    zTick = 0.02          -- Rate that z rotation changes
 }
 
 local VehicleModel = 'bmx'                   -- The model used for the vehicle underneath
@@ -124,6 +124,12 @@ end
 --- ============================
 ---           Helpers
 --- ============================
+
+--- Get vehicle speed
+--- @return boolean
+function isMaxSpeed()
+    return (GetEntitySpeed(Skateboard.vehicle) * 3.6) > Config.MaxSpeedKmh
+end
 
 --- Get the forward coordinates of the specified entity
 --- @param entity number
@@ -400,7 +406,7 @@ function Skateboard:handleKeys(currentDistance)
                     local duration = 0
                     while IsControlPressed(0, Keys.Spacebar) do
                         Wait(Skateboard.waitTime)
-                        duration = duration + 7.5
+                        duration = duration + 5.0
                     end
 
                     -- Calculate the jump boost
@@ -421,10 +427,8 @@ function Skateboard:handleKeys(currentDistance)
                         0.0, false, false, false)
 
                     -- Initialize z rotation
-                    Skateboard.zRotation = Skateboard.zRotationMin
+                    Skateboard.airRotation = Skateboard.airRotationMin
                 end
-
-                Skateboard.isMaxSpeed = (GetEntitySpeed(Skateboard.vehicle) * 3.6) > Config.MaxSpeedKmh
 
                 -- W + LeftShift = Strong acceleration
                 if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.LeftShift) then
@@ -462,6 +466,8 @@ function Skateboard:handleKeys(currentDistance)
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
                 end
 
+                Skateboard.isMaxSpeed = isMaxSpeed()
+
                 -- W = Accelerate
                 if IsControlPressed(0, Keys.W) then
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
@@ -481,8 +487,7 @@ function Skateboard:handleKeys(currentDistance)
 
                 -- W + A = Accelerate and turn left
                 if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.A)
-                    and not IsControlPressed(0, Keys.S) and not IsControlPressed(0, Keys.D)
-                    and not Skateboard.isMaxSpeed then
+                    and not IsControlPressed(0, Keys.S) and not IsControlPressed(0, Keys.D) then
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 7, 1.0)
                 end
 
@@ -494,8 +499,7 @@ function Skateboard:handleKeys(currentDistance)
 
                 -- W + D = Accelerate and turn right
                 if IsControlPressed(0, Keys.W) and IsControlPressed(0, Keys.D)
-                    and not IsControlPressed(0, Keys.S) and not IsControlPressed(0, Keys.A)
-                    and not Skateboard.isMaxSpeed then
+                    and not IsControlPressed(0, Keys.S) and not IsControlPressed(0, Keys.A) then
                     TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 8, 1.0)
                 end
 
@@ -518,20 +522,24 @@ function Skateboard:handleKeys(currentDistance)
                 end
             else
                 -- Increase the z rotation value until it reaches max
-                if Skateboard.zRotation < Skateboard.zRotationMax then
-                    Skateboard.zRotation = Skateboard.zRotation + Skateboard.zTick
+                if Skateboard.airRotation < Skateboard.airRotationMax then
+                    Skateboard.airRotation = Skateboard.airRotation + Skateboard.zTick
                 end
 
                 -- A = Rotate left
                 if IsControlPressed(0, Keys.A) then
-                    -- SetEntityAngularVelocity(Skateboard.vehicle, rotVel.x - 0.1, rotVel.y - 0.1, rotVel.z + 0.1)
-                    SetEntityAngularVelocity(Skateboard.vehicle, 0.0, 0.0, Skateboard.zRotation)
+                    SetEntityAngularVelocity(Skateboard.vehicle, 0.0, 0.0, Skateboard.airRotation)
+
+                    -- if x rotation is greater than 90 or less than -90, increase x rotation instead
+                    -- SetEntityAngularVelocity(Skateboard.vehicle, Skateboard.airRotation, 0.0, 0.0)
                 end
 
                 -- D = Rotate right
                 if IsControlPressed(0, Keys.D) then
-                    -- SetEntityAngularVelocity(Skateboard.vehicle, rotVel.x + 0.1, rotVel.y - 0.1, rotVel.z - 0.1)
-                    SetEntityAngularVelocity(Skateboard.vehicle, 0.0, 0.0, -Skateboard.zRotation)
+                    SetEntityAngularVelocity(Skateboard.vehicle, 0.0, 0.0, -Skateboard.airRotation)
+
+                    -- if x rotation is greater than 90 or less than -90, decrease x rotation instead
+                    -- SetEntityAngularVelocity(Skateboard.vehicle, -Skateboard.airRotation, 0.0, 0.0)
                 end
             end
         else
@@ -584,7 +592,7 @@ function Skateboard:mustRagdoll()
     local rotation = GetEntityRotation(Skateboard.vehicle)
     local x = rotation.x
     local y = rotation.y
-    if (x > 60.0 or y > 60.0 or x < -60.0 or y < -60.0) and Skateboard.speed < 3.0 then
+    if (x > 60.0 or y > 60.0 or x < -60.0 or y < -60.0) and Skateboard.speed < 5.0 then
         return true
     end
     -- if (HasEntityCollidedWithAnything(Skateboard.playerPed) and Skateboard.speed > 30.0) then return true end
