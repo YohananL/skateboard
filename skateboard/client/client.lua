@@ -4,11 +4,11 @@
 
 --- @class Skateboard
 local Skateboard = {
-    vehicle = 0,          -- The vehicle entity used underneath so the player can ride the skateboard
-    board = 0,            -- The skateboard object that the player stands on
+    vehicle = nil,        -- The vehicle entity used underneath so the player can ride the skateboard
+    board = nil,          -- The skateboard object that the player stands on
     speed = 0.0,          -- The speed of the vehicle
-    playerPed = 0,        -- The player ped
-    driverDummy = 0,      -- The npc ped to use for driving the vehicle (so the player won't do the animations)
+    playerPed = nil,      -- The player ped
+    driverDummy = nil,    -- The npc ped to use for driving the vehicle (so the player won't do the animations)
     isMounted = false,    -- Determines if the player is attached to the skateboard
     isMaxSpeed = false,   -- Determines if the skateboard is at max speed
     waitTime = 1,         -- The wait time for threads
@@ -128,7 +128,7 @@ end
 --- Get vehicle speed
 --- @return boolean
 function isMaxSpeed()
-    return (GetEntitySpeed(Skateboard.vehicle) * 3.6) > Config.MaxSpeedKmh
+    return Skateboard.speed > Config.MaxSpeedKmh
 end
 
 --- Get the forward coordinates of the specified entity
@@ -380,8 +380,10 @@ function Skateboard:handleKeys(currentDistance)
 
         -- Movement controls
         if Skateboard.isMounted then
-            -- Check if player must ragdoll
+            -- Get the current speed
             Skateboard.speed = GetEntitySpeed(Skateboard.vehicle) * 3.6
+
+            -- Check if player must ragdoll
             if Skateboard:mustRagdoll() then
                 local rotation = GetEntityRotation(Skateboard.vehicle)
                 local msg = string.format("Ragdolling: x = %.2f, y = %.2f, z = %.2f, speed = %.2f",
@@ -458,9 +460,10 @@ function Skateboard:handleKeys(currentDistance)
                 -- If no keys are pressed
                 if IsControlReleased(0, Keys.W) or IsControlReleased(0, Keys.S)
                     or IsControlReleased(0, Keys.A) or IsControlReleased(0, Keys.D) then
-                    -- If vehicle is downhill, keep going
                     local pitch = GetEntityPitch(Skateboard.vehicle)
-                    if pitch < -0.5 then
+
+                    -- If vehicle is downhill or there's momentum, keep going
+                    if pitch <= -0.4 or (Skateboard.speed > 10 and pitch <= -0.2) then
                         if IsControlPressed(0, Keys.A) then
                             -- A = Turn left
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 7, 1.0)
@@ -470,7 +473,8 @@ function Skateboard:handleKeys(currentDistance)
                         else
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
                         end
-                    elseif pitch > 0.5 then
+                        -- Vehicle is uphill, reverse
+                    elseif pitch >= 0.4 then
                         if IsControlPressed(0, Keys.A) then
                             -- A = Turn left
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 13, 1.0)
@@ -481,11 +485,9 @@ function Skateboard:handleKeys(currentDistance)
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 3, 1.0)
                         end
                     else
+                        -- Stop moving
                         TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
                     end
-
-                    -- -- Stop moving
-                    -- TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
                 end
 
                 -- If W is just released
