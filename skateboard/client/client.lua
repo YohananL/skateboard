@@ -20,7 +20,8 @@ local Skateboard = {
 
 local VehicleModel = 'bmx'                   -- The model used for the vehicle underneath
 local BoardModel = 'p_defilied_ragdoll_01_s' -- The board prop model
-local DriverDummyModel = 'a_c_cat_01'        -- The ped model to use for driving the skateboard
+local DriverDummyModel = 'a_c_rabbit_01'     -- The ped model to use for driving the skateboard
+-- local DriverDummyModel = 'a_c_cat_01'        -- The ped model to use for driving the skateboard
 -- local DriverDummyModel = 'a_f_m_bevhills_01' -- The ped model to use for driving the skateboard
 
 --- @enum EntityType
@@ -237,6 +238,11 @@ function initializeDummyDriver(playerForwardCoords, playerHeading)
     SetEntityInvincible(Skateboard.driverDummy, true)
     FreezeEntityPosition(Skateboard.driverDummy, true)
     TaskWarpPedIntoVehicle(Skateboard.driverDummy, Skateboard.vehicle, -1)
+
+    -- Stop ped from talking
+    StopPedSpeaking(Skateboard.driverDummy, true)
+    DisablePedPainAudio(Skateboard.driverDummy, true)
+    SetAmbientVoiceName(Skateboard.driverDummy, 'kerry')
 end
 
 function putDownBoard()
@@ -463,30 +469,40 @@ function Skateboard:handleKeys(currentDistance)
                     local pitch = GetEntityPitch(Skateboard.vehicle)
 
                     -- If vehicle is downhill or there's momentum, keep going
-                    if pitch <= -0.4 or (Skateboard.speed > 10 and pitch <= -0.2) then
+                    if pitch <= -0.5 or (Skateboard.speed / 35.0 >= pitch) then
                         if IsControlPressed(0, Keys.A) then
-                            -- A = Turn left
+                            -- A = Turn left and accelerate
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 7, 1.0)
                         elseif IsControlPressed(0, Keys.D) then
-                            -- D = Turn right
+                            -- D = Turn right and accelerate
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 8, 1.0)
                         else
+                            -- Accelerate
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
                         end
                         -- Vehicle is uphill, reverse
-                    elseif pitch >= 0.4 then
+                    elseif pitch >= 0.5 then
                         if IsControlPressed(0, Keys.A) then
-                            -- A = Turn left
+                            -- A = Turn left and reverse
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 13, 1.0)
                         elseif IsControlPressed(0, Keys.D) then
-                            -- D = Turn right
+                            -- D = Turn right and reverse
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 14, 1.0)
                         else
+                            -- Reverse
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 3, 1.0)
                         end
                     else
-                        -- Stop moving
-                        TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
+                        if IsControlPressed(0, Keys.A) then
+                            -- A = Turn left
+                            TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 10, 1.0)
+                        elseif IsControlPressed(0, Keys.D) then
+                            -- D = Turn right
+                            TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 11, 1.0)
+                        else
+                            -- Stop moving
+                            TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 1, 1.0)
+                        end
                     end
                 end
 
@@ -558,17 +574,11 @@ function Skateboard:handleKeys(currentDistance)
                 -- A = Rotate left
                 if IsControlPressed(0, Keys.A) then
                     SetEntityAngularVelocity(Skateboard.vehicle, 0.0, 0.0, Skateboard.airRotation)
-
-                    -- if x rotation is greater than 90 or less than -90, increase x rotation instead
-                    -- SetEntityAngularVelocity(Skateboard.vehicle, Skateboard.airRotation, 0.0, 0.0)
                 end
 
                 -- D = Rotate right
                 if IsControlPressed(0, Keys.D) then
                     SetEntityAngularVelocity(Skateboard.vehicle, 0.0, 0.0, -Skateboard.airRotation)
-
-                    -- if x rotation is greater than 90 or less than -90, decrease x rotation instead
-                    -- SetEntityAngularVelocity(Skateboard.vehicle, -Skateboard.airRotation, 0.0, 0.0)
                 end
             end
         else
@@ -624,7 +634,7 @@ function Skateboard:mustRagdoll()
     if (x > 60.0 or y > 60.0 or x < -60.0 or y < -60.0) and Skateboard.speed < 5.0 then
         return true
     end
-    -- if (HasEntityCollidedWithAnything(Skateboard.playerPed) and Skateboard.speed > 30.0) then return true end
+    if (HasEntityCollidedWithAnything(Skateboard.playerPed) and Skateboard.speed > 30.0) then return true end
     if IsPedDeadOrDying(Skateboard.playerPed, false) then return true end
     return false
 end
