@@ -395,7 +395,7 @@ function Skateboard:handleKeys(currentDistance)
 
             -- Check if player must ragdoll
             if Skateboard:mustRagdoll() then
-                local rotation = GetEntityRotation(Skateboard.vehicle)
+                -- local rotation = GetEntityRotation(Skateboard.vehicle)
 
                 -- local msg = string.format("Ragdolling: x = %.2f, y = %.2f, z = %.2f, speed = %.2f",
                 --     rotation.x, rotation.y, rotation.z, Skateboard.speed)
