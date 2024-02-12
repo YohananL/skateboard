@@ -4,18 +4,22 @@
 
 --- @class Skateboard
 local Skateboard = {
-    vehicle = nil,        -- The vehicle entity used underneath so the player can ride the skateboard
-    board = nil,          -- The skateboard object that the player stands on
-    speed = 0.0,          -- The speed of the vehicle
-    playerPed = nil,      -- The player ped
-    driverDummy = nil,    -- The npc ped to use for driving the vehicle (so the player won't do the animations)
-    isMounted = false,    -- Determines if the player is attached to the skateboard
-    isMaxSpeed = false,   -- Determines if the skateboard is at max speed
-    waitTime = 1,         -- The wait time for threads
-    airRotation = 0.0,    -- z rotation
-    airRotationMin = 1.5, -- Min z rotation
-    airRotationMax = 4.0, -- Max z rotation
-    zTick = 0.02          -- Rate that z rotation changes
+    vehicle = nil,           -- The vehicle entity used underneath so the player can ride the skateboard
+    board = nil,             -- The skateboard object that the player stands on
+    speed = 0.0,             -- The speed of the vehicle
+    playerPed = nil,         -- The player ped
+    driverDummy = nil,       -- The npc ped to use for driving the vehicle (so the player won't do the animations)
+    isMounted = false,       -- Determines if the player is attached to the skateboard
+    isMaxSpeed = false,      -- Determines if the skateboard is at max speed
+    waitTime = 1,            -- The wait time for threads
+    upHillPitch = 1.0,       -- The pitch used to determine whether the vehicle is uphill
+    downHillPitch = -1.0,    -- The pitch used to determine whether the vehicle is downhill
+    momentumBase = 10.0,     -- The base number to divide the speed by to determine whether the vehicle should keep moving
+    momentumIncrement = 0.2, -- The number used to increase the base momentum
+    airRotation = 0.0,       -- z rotation
+    airRotationMin = 1.5,    -- Min z rotation
+    airRotationMax = 4.0,    -- Max z rotation
+    zTick = 0.02             -- Rate that z rotation changes
 }
 
 local VehicleModel = 'bmx'                   -- The model used for the vehicle underneath
@@ -469,7 +473,8 @@ function Skateboard:handleKeys(currentDistance)
                     local pitch = GetEntityPitch(Skateboard.vehicle)
 
                     -- If vehicle is downhill or there's momentum, keep going
-                    if pitch <= -0.5 or (Skateboard.speed / 35.0 >= pitch) then
+                    if pitch < Skateboard.downHillPitch
+                        or ((Skateboard.speed / Skateboard.momentumBase) + Skateboard.downHillPitch >= pitch) then
                         if IsControlPressed(0, Keys.A) then
                             -- A = Turn left and accelerate
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 7, 1.0)
@@ -480,8 +485,15 @@ function Skateboard:handleKeys(currentDistance)
                             -- Accelerate
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 9, 1.0)
                         end
+
+                        if pitch >= Skateboard.downHillPitch then
+                            Skateboard.momentumBase = Skateboard.momentumBase + Skateboard.momentumIncrement
+                        else
+                            Skateboard.momentumBase = 10.0
+                        end
+
                         -- Vehicle is uphill, reverse
-                    elseif pitch >= 0.5 then
+                    elseif pitch >= Skateboard.upHillPitch then
                         if IsControlPressed(0, Keys.A) then
                             -- A = Turn left and reverse
                             TaskVehicleTempAction(Skateboard.driverDummy, Skateboard.vehicle, 13, 1.0)
