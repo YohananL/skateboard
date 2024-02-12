@@ -86,7 +86,7 @@ local Animations = {
 
 --- Wait until animation is loaded
 --- @param dictionary string
-function waitForAnimation(dictionary)
+function requestAnimation(dictionary)
     RequestAnimDict(dictionary)
     repeat
         Wait(100)
@@ -97,7 +97,7 @@ end
 
 --- Unload animations
 --- @param animations table
-function unLoadAnimations(animations)
+function unloadAnimations(animations)
     for _, value in pairs(animations) do
         RemoveAnimDict(value.dictionary)
     end
@@ -108,7 +108,7 @@ end
 function loadAnimations(animations)
     for _, value in pairs(animations) do
         if not (HasAnimDictLoaded(value.dictionary)) then
-            waitForAnimation(value.dictionary)
+            requestAnimation(value.dictionary)
         end
     end
 end
@@ -376,7 +376,7 @@ function Skateboard:handleKeys(currentDistance)
         if IsControlJustPressed(0, Keys.E) then
             -- Check if player is riding the skateboard
             if Skateboard.isMounted then
-                -- Notify the player they can't remove the skateboard while they're riding it
+                TriggerEvent('QBCore:Notify', 'Can\'t remove skateboard while riding it', 'error', 2500)
             else
                 Skateboard:clear()
             end
@@ -396,10 +396,10 @@ function Skateboard:handleKeys(currentDistance)
             -- Check if player must ragdoll
             if Skateboard:mustRagdoll() then
                 local rotation = GetEntityRotation(Skateboard.vehicle)
-                local msg = string.format("Ragdolling: x = %.2f, y = %.2f, z = %.2f, speed = %.2f",
-                    rotation.x, rotation.y, rotation.z, Skateboard.speed)
 
-                TriggerEvent('QBCore:Notify', msg, 'error', 2500)
+                -- local msg = string.format("Ragdolling: x = %.2f, y = %.2f, z = %.2f, speed = %.2f",
+                --     rotation.x, rotation.y, rotation.z, Skateboard.speed)
+                -- TriggerEvent('QBCore:Notify', msg, 'error', 2500)
 
                 Skateboard:detachPlayer()
                 SetPedToRagdoll(Skateboard.playerPed, 3000, 2000, 0, true, true, false)
@@ -680,6 +680,9 @@ function Skateboard:clear()
 
     -- Reset skateboard values
     Skateboard:resetValues()
+
+    -- Unload animations
+    unloadAnimations(Animations.skateboard)
 end
 
 --- ============================
