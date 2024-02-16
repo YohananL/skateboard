@@ -107,7 +107,7 @@ end
 --- @param animations table
 function loadAnimations(animations)
     for _, value in pairs(animations) do
-        if not (HasAnimDictLoaded(value.dictionary)) then
+        if not HasAnimDictLoaded(value.dictionary) then
             requestAnimation(value.dictionary)
         end
     end
