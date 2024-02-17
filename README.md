@@ -22,3 +22,4 @@ Full video: https://vimeo.com/914045527
 <br />
 ![skateboard-1](https://github.com/YohananL/skateboard/assets/156287601/2b51bf37-abb7-415c-8d27-d5c554377f80)
 ![skateboard-2](https://github.com/YohananL/skateboard/assets/156287601/c1fad9e7-580d-4bc3-bed6-a894ff5e1a50)
+![skateboard-3](https://github.com/YohananL/skateboard/assets/156287601/b035e8e0-62af-4c94-b421-0ba673ea824b)
