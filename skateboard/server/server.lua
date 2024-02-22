@@ -1,5 +1,6 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
+--- Set the function when using the skateboard item
 QBCore.Functions.CreateUseableItem('skateboard', function(source, item)
     local playerId = source
     local Player = QBCore.Functions.GetPlayer(playerId)
