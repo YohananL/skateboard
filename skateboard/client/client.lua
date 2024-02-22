@@ -91,20 +91,13 @@ local Animations = {
     },
 }
 
---- Wait until animation is loaded
---- @param dictionary string
-function requestAnimation(dictionary)
-    RequestAnimDict(dictionary)
-    repeat
-        Wait(1)
-    until HasAnimDictLoaded(dictionary)
-end
-
 --- Unload animations
 --- @param animations table
 function unloadAnimations(animations)
     for _, value in pairs(animations) do
-        RemoveAnimDict(value.dictionary)
+        if HasAnimDictLoaded(value.dictionary) then
+            RemoveAnimDict(value.dictionary)
+        end
     end
 end
 
@@ -112,9 +105,10 @@ end
 --- @param animations table
 function loadAnimations(animations)
     for _, value in pairs(animations) do
-        if not HasAnimDictLoaded(value.dictionary) then
-            requestAnimation(value.dictionary)
-        end
+        RequestAnimDict(value.dictionary)
+        repeat
+            Wait(1)
+        until HasAnimDictLoaded(value.dictionary)
     end
 end
 
@@ -158,7 +152,7 @@ function loadModel(modelHash)
     -- Request the model and wait for it to load
     RequestModel(modelHash)
     repeat
-        Wait(100)
+        Wait(1)
     until HasModelLoaded(modelHash)
 end
 
