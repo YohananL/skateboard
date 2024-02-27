@@ -11,7 +11,7 @@ end)
 
 --- Delete entity from server using net id from client
 --- @param netId integer - The net id of the entity to delete
-RegisterNetEvent('pet-companion:server:deleteEntity', function(netId)
+RegisterNetEvent('skateboard:server:deleteEntity', function(netId)
     local entity = NetworkGetEntityFromNetworkId(netId)
     if DoesEntityExist(entity) then
         DeleteEntity(entity)

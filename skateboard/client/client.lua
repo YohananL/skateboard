@@ -198,7 +198,7 @@ end
 --- Triggers the event to delete the entity on the server-side
 --- @param entity number
 function deleteEntity(entity)
-    TriggerServerEvent('pet-companion:server:deleteEntity', NetworkGetNetworkIdFromEntity(entity))
+    TriggerServerEvent('skateboard:server:deleteEntity', NetworkGetNetworkIdFromEntity(entity))
 end
 
 --- Create the skateboard vehicle and initialize settings
